@@ -3,12 +3,14 @@ import json
 import pickle
 from typing import Dict, Any, Optional
 from pathlib import Path
+import numpy as np
 from sklearn.preprocessing import (
     StandardScaler,
     MinMaxScaler,
     RobustScaler,
     LabelEncoder,
     OneHotEncoder,
+    PolynomialFeatures,
 )
 
 
@@ -138,3 +140,121 @@ class FeatureEngineer:
             pickle.dump(self.encoders, f)
 
         return df
+
+    def create_interaction_features(
+        self,
+        df: pd.DataFrame,
+        columns: list,
+        include_products: bool = True,
+        include_powers: bool = False,
+        include_exponentials: bool = False,
+    ) -> pd.DataFrame:
+        """
+        Create interaction and polynomial features.
+
+        Args:
+            df: DataFrame
+            columns: Columns to create interactions from
+            include_products: Create col1 * col2 interactions
+            include_powers: Create squared terms (col^2)
+            include_exponentials: Create exponential terms
+
+        Returns:
+            DataFrame with new features
+        """
+        df_new = df.copy()
+
+        for i, col1 in enumerate(columns):
+            if col1 not in df_new.columns:
+                continue
+
+            # Squared terms
+            if include_powers:
+                df_new[f"{col1}_squared"] = df_new[col1] ** 2
+                self.metadata.append(
+                    {"feature": f"{col1}_squared", "type": "polynomial", "degree": 2}
+                )
+
+            # Exponential
+            if include_exponentials:
+                df_new[f"{col1}_exp"] = np.exp(df_new[col1])
+                self.metadata.append({"feature": f"{col1}_exp", "type": "exponential"})
+
+            # Interaction with other columns
+            if include_products:
+                for col2 in columns[i + 1 :]:
+                    if col2 not in df_new.columns:
+                        continue
+
+                    # Product interaction
+                    feat_name = f"{col1}_x_{col2}"
+                    df_new[feat_name] = df_new[col1] * df_new[col2]
+                    self.metadata.append(
+                        {"feature": feat_name, "type": "interaction", "components": [col1, col2]}
+                    )
+
+        return df_new
+
+    def create_log_features(
+        self,
+        df: pd.DataFrame,
+        columns: list,
+    ) -> pd.DataFrame:
+        """
+        Create log-transformed features for skewed data.
+
+        Args:
+            df: DataFrame
+            columns: Columns to log-transform
+
+        Returns:
+            DataFrame with log features
+        """
+        df_log = df.copy()
+
+        for col in columns:
+            if col not in df_log.columns:
+                continue
+
+            # Log1p for handling zeros
+            df_log[f"{col}_log"] = np.log1p(df_log[col])
+            self.metadata.append({"feature": f"{col}_log", "type": "log_transform"})
+
+        return df_log
+
+    def create_aggregated_features(
+        self,
+        df: pd.DataFrame,
+        numeric_col: str,
+        categorical_col: str,
+        operations: list = None,
+    ) -> pd.DataFrame:
+        """
+        Create aggregated features from groupby operations.
+
+        Args:
+            df: DataFrame
+            numeric_col: Numeric column to aggregate
+            categorical_col: Column to group by
+            operations: List of operations ('mean', 'sum', 'count', 'std')
+
+        Returns:
+            DataFrame with aggregated features
+        """
+        if operations is None:
+            operations = ["mean", "sum", "std"]
+
+        df_agg = df.copy()
+
+        for op in operations:
+            new_col = f"{numeric_col}_by_{categorical_col}_{op}"
+            df_agg[new_col] = df.groupby(categorical_col)[numeric_col].transform(op)
+            self.metadata.append(
+                {
+                    "feature": new_col,
+                    "type": f"groupby_{op}",
+                    "components": [numeric_col, categorical_col],
+                }
+            )
+
+        return df_agg

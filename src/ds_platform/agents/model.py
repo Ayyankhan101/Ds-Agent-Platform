@@ -18,6 +18,11 @@ from sklearn.metrics import (
     mean_squared_error,
     confusion_matrix,
     classification_report,
+    roc_curve,
+    auc,
+    precision_score,
+    recall_score,
+    f1_score,
 )
 
 
@@ -60,6 +65,19 @@ class ModelTrainer:
         # Calculate metrics
         if problem_type == "Classification":
             metrics = self._classification_metrics(y_test, y_pred)
+            # ROC curve data
+            if hasattr(self.model, "predict_proba"):
+                try:
+                    y_proba = self.model.predict_proba(X_test)[:, 1]
+                    fpr, tpr, thresholds = roc_curve(y_test, y_proba)
+                    roc_auc = auc(fpr, tpr)
+                    metrics["roc_auc"] = float(roc_auc)
+                    metrics["roc_curve"] = {
+                        "fpr": fpr.tolist(),
+                        "tpr": tpr.tolist(),
+                    }
+                except:
+                    pass
         else:
             metrics = self._regression_metrics(y_test, y_pred)
 
@@ -111,10 +129,19 @@ class ModelTrainer:
         """Calculate classification metrics."""
         cm = confusion_matrix(y_test, y_pred)
         accuracy = accuracy_score(y_test, y_pred)
+        precision = precision_score(y_test, y_pred, average="weighted", zero_division=0)
+        recall = recall_score(y_test, y_pred, average="weighted", zero_division=0)
+        f1 = f1_score(y_test, y_pred, average="weighted", zero_division=0)
+
+        report = classification_report(y_test, y_pred, output_dict=True, zero_division=0)
 
         return {
             "accuracy": float(accuracy),
+            "precision": float(precision),
+            "recall": float(recall),
+            "f1_score": float(f1),
             "confusion_matrix": cm.tolist(),
+            "classification_report": report,
         }
 
     def _regression_metrics(self, y_test, y_pred) -> Dict[str, Any]:

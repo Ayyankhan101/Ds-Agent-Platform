@@ -29,7 +29,9 @@ class TestModelTrainer:
                 "target": [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0],
             }
         )
-        result = self.agent.train_and_evaluate(df, "target", {"test_size": 0.2, "random_seed": 42})
+        result = self.agent.train_and_evaluate(
+            df, "target", {"test_size": 0.2, "random_seed": 42, "problem_type": "Regression"}
+        )
         assert "metrics" in result
         assert "rmse" in result["metrics"]
 

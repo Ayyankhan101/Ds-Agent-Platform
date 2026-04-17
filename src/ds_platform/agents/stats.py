@@ -15,21 +15,24 @@ class StatsAgent:
             alpha = params.get("alpha", 0.05)
 
             if test_type == "t-test":
-                col = params.get("column_a")
+                col = params.get("column_a") or params.get("column")
                 popmean = params.get("popmean", 0)
-                data = df[col].dropna()
-                t_stat, p_val = stats.ttest_1samp(data, popmean)
-                result.update(
-                    {
-                        "statistic": float(t_stat),
-                        "p_value": float(p_val),
-                        "degrees_of_freedom": len(data) - 1,
-                    }
-                )
+                if col and col in df.columns:
+                    data = df[col].dropna()
+                    t_stat, p_val = stats.ttest_1samp(data, popmean)
+                    result.update(
+                        {
+                            "statistic": float(t_stat),
+                            "p_value": float(p_val),
+                            "degrees_of_freedom": len(data) - 1,
+                        }
+                    )
+                else:
+                    result["error"] = "Column not found"
 
             elif test_type == "chi-square":
-                col1 = params.get("column_a")
-                col2 = params.get("column_b")
+                col1 = params.get("column_a") or params.get("column1")
+                col2 = params.get("column_b") or params.get("column2")
                 if col1 and col2:
                     contingency_table = pd.crosstab(df[col1], df[col2])
                     chi2, p_val, dof, expected = stats.chi2_contingency(contingency_table)

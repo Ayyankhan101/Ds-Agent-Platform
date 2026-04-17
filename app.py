@@ -1,11 +1,18 @@
+"""
+Data Science Agent Platform - Full Dashboard Restyle
+Matching reference_app.py MediTrack style with dark teal/neon theme
+"""
+
 import streamlit as st
 import pandas as pd
-import traceback
+import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+from pathlib import Path
 
-# Import your custom agents (assumes ds_platform package is installed)
-from ds_platform.agents.cleaning import CleaningPipeline
+# Import DS Platform agents
+from ds_platform.agents.cleaning import CleaningPipeline, SklearnPipelineWrapper
 from ds_platform.agents.eda import EDAAgent
 from ds_platform.agents.features import FeatureEngineer
 from ds_platform.agents.stats import StatsAgent
@@ -13,28 +20,178 @@ from ds_platform.agents.model import ModelTrainer
 from ds_platform.agents.report import ReportWriter
 from ds_platform.agents.api import APIFetcher
 
-# ---------------------------------------------------------------------------
-# 🎨 PAGE CONFIG & THEME
-# ---------------------------------------------------------------------------
+# ============================================================================
+# 🔧 PAGE CONFIG & THEME
+# ============================================================================
 st.set_page_config(
-    page_title="Data Science Agent Platform v2",
-    page_icon="🚀",
+    page_title="Data Science Platform",
+    page_icon="📊",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
-# ---------------------------------------------------------------------------
-# 🧠 INITIALIZATION & STATE MANAGEMENT
-# ---------------------------------------------------------------------------
+# ============================================================================
+# 🎨 DARK COMMAND CENTER THEME (matching reference_app.py)
+# ============================================================================
+st.markdown(
+    """
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600;700&display=swap');
+
+:root{
+    --bg-dark:#0a0f0d; --bg-card:#0d1411; --bg-card-hover:#112420;
+    --teal:#0d9488; --teal-light:#ccfbf1; --teal-dark:#134e4a;
+    --teal-neon:#14ffec; --teal-dim:#0a6b68;
+    --red:#ef4444; --amber:#f59e0b; --sky:#0ea5e9;
+    --text:#e2e8f0; --text-muted:#94a3b8; --text-dim:#64748b;
+    --border:#1e3a35; --glow:rgba(20,255,236,0.3);
+}
+
+html,body,[class*="css"]{background:var(--bg-dark)!important;color:var(--text)!important;}
+h1,h2,h3{font-family:'DM Serif Display',serif;color:var(--teal-light)!important;}
+p,div,span,label{font-family:'DM Sans',sans-serif;}
+.stApp{background:var(--bg-dark)!important;}
+
+/* Sidebar */
+[data-testid="stSidebar"]{background:#0d1411!important;border-right:1px solid var(--border);}
+[data-testid="stSidebar"] *{color:var(--teal-light)!important;}
+[data-testid="stSidebar"] h1,[data-testid="stSidebar"] h2{color:var(--teal-neon)!important;}
+
+/* Metric Cards */
+.metric-card{
+    background:linear-gradient(135deg,var(--bg-card) 0%,#0f1f1c 100%);
+    border:1px solid var(--border);border-radius:16px;
+    padding:20px 24px;box-shadow:0 4px 20px rgba(0,0,0,0.4),0 0 30px var(--glow);
+    transition:transform 0.2s ease,box-shadow 0.2s ease;
+}
+.metric-card:hover{transform:translateY(-2px);box-shadow:0 8px 30px rgba(0,0,0,0.5),0 0 40px var(--glow);}
+.metric-val{font-size:2.2rem;font-weight:700;color:var(--teal-neon);line-height:1.1;font-family:'DM Sans',sans-serif;}
+.metric-lbl{font-size:.75rem;color:var(--text-dim);letter-spacing:.1em;text-transform:uppercase;}
+
+/* Section Headers */
+.section-head{
+    font-family:'DM Serif Display',serif;font-size:1.3rem;
+    color:var(--teal-neon);border-left:4px solid var(--teal-neon);
+    padding-left:12px;margin:32px 0 16px;background:linear-gradient(90deg,rgba(20,255,236,0.1) 0%,transparent 100%);
+    padding:8px 12px 8px 16px;
+}
+
+/* Buttons */
+.stButton>button{
+    background:linear-gradient(135deg,var(--teal) 0%,var(--teal-dark) 100%);
+    color:var(--teal-light);border:none;border-radius:8px;font-weight:600;
+    box-shadow:0 4px 15px rgba(13,148,136,0.4);
+}
+.stButton>button:hover{background:linear-gradient(135deg,var(--teal-neon) 0%,var(--teal) 100%);color:var(--bg-dark)!important;}
+
+/* Select boxes */
+.stSelect>div>div{background:var(--bg-card)!important;border:1px solid var(--border)!important;color:var(--text)!important;}
+.stMultiSelect>div>div{background:var(--bg-card)!important;border:1px solid var(--border)!important;color:var(--text)!important;}
+
+/* DataFrames */
+[data-testid="stDataFrame"]{background:var(--bg-card)!important;border:1px solid var(--border)!important;border-radius:12px;}
+
+/* Scrollbar */
+::-webkit-scrollbar{width:8px;height:8px;}
+::-webkit-scrollbar-track{background:var(--bg-dark);}
+::-webkit-scrollbar-thumb{background:var(--teal-dark);border-radius:4px;}
+::-webkit-scrollbar-thumb:hover{background:var(--teal);}
+
+/* Alert/Info Boxes */
+.alert-box{
+    background:linear-gradient(135deg,rgba(239,68,68,0.1) 0%,rgba(239,68,68,0.05) 100%);
+    border:1px solid var(--red);border-radius:12px;padding:16px;margin:8px 0;
+    animation:pulse 2s infinite;
+}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,0.4);}50%{box-shadow:0 0 0 10px rgba(239,68,68,0);}}
+
+.info-box{
+    background:linear-gradient(135deg,rgba(20,255,236,0.1) 0%,rgba(20,255,236,0.05) 100%);
+    border:1px solid var(--teal);border-radius:12px;padding:16px;margin:8px 0;
+}
+
+/* Cards */
+.radar-card{background:var(--bg-card);border:1px solid var(--border);border-radius:16px;padding:20px;transition:all 0.3s ease;}
+.radar-card:hover{border-color:var(--teal-neon);box-shadow:0 0 20px var(--glow);}
+
+/* KPI with delta */
+.kpi-delta-pos{color:var(--teal-neon)!important;}
+.kpi-delta-neg{color:var(--red)!important;}
+</style>
+""",
+    unsafe_allow_html=True,
+)
+
+
+# ============================================================================
+# 📊 HELPER FUNCTIONS
+# ============================================================================
+def kpi(col, label, val, delta=None, fmt=None, key=None):
+    """Custom KPI card matching reference_app.py style"""
+    # Handle non-numeric values (strings, None, etc.)
+    if val is None:
+        display = "N/A"
+    elif isinstance(val, str):
+        display = str(val)  # Use string as-is
+    elif fmt == "money":
+        display = f"${val:,.0f}" if val < 10000 else f"${val / 1e3:,.1f}K"
+    elif fmt == "pct":
+        display = f"{val:.1f}%"
+    elif fmt == "dec":
+        display = f"{val:.3f}"
+    else:
+        display = f"{val:,}"
+
+    delta_html = ""
+    if delta is not None:
+        delta_color = "var(--teal-neon)" if delta > 0 else "var(--red)"
+        delta_icon = "▲" if delta > 0 else "▼"
+        delta_html = f"<div style='color:{delta_color};font-size:.85rem;margin-top:4px;'>{delta_icon} {abs(delta):.1f}%</div>"
+
+    col.markdown(
+        f"<div class='metric-card'><div class='metric-lbl'>{label}</div><div class='metric-val'>{display}</div>{delta_html}</div>",
+        unsafe_allow_html=True,
+    )
+
+
+def plot_radar(categories, values, title, color="#14ffec"):
+    """Radar chart matching reference_app.py style"""
+    fig = go.Figure()
+    fig.add_trace(
+        go.Scatterpolar(
+            r=values + [values[0]],
+            theta=categories + [categories[0]],
+            fill="toself",
+            line_color=color,
+            fillcolor=f"rgba({int(color[1:3], 16)},{int(color[3:5], 16)},{int(color[5:7], 16)},0.3)",
+            name=title,
+        )
+    )
+    fig.update_layout(
+        polar=dict(
+            radialaxis=dict(
+                visible=True, range=[0, 1], tickfont=dict(color="#94a3b8"), gridcolor="#1e3a35"
+            ),
+            bgcolor="#0a0f0d",
+        ),
+        paper_bgcolor="#0a0f0d",
+        margin=dict(t=30, b=20, l=20, r=20),
+        showlegend=False,
+    )
+    return fig
+
+
+# ============================================================================
+# 🧠 STATE MANAGEMENT
+# ============================================================================
 if "df" not in st.session_state:
     st.session_state.df = None
 if "context" not in st.session_state:
     st.session_state.context = {}
 if "pipeline_completed" not in st.session_state:
-    st.session_state.pipeline_completed = {i: False for i in range(1, 8)}
+    st.session_state.pipeline_completed = {i: False for i in range(1, 11)}
 
 
-# Initialize agents (loaded once per session)
 @st.cache_resource
 def load_agents():
     return {
@@ -51,714 +208,1033 @@ def load_agents():
 agents = load_agents()
 
 
-# ---------------------------------------------------------------------------
-# 🎨 CUSTOM CSS STYLING
-# ---------------------------------------------------------------------------
-st.markdown(
-    """
-<style>
-    /* Main background */
-    .stApp {
-        background-color: #0E1117;
-    }
-    
-    /* Metric cards */
-    div[data-testid="metric-container"] {
-        background-color: #1E1E1E;
-        border: 1px solid #00CC96;
-        border-radius: 10px;
-        padding: 15px;
-    }
-    
-    /* Section headers */
-    .section-header {
-        background: linear-gradient(90deg, #00CC96 0%, #0E1117 100%);
-        padding: 10px 15px;
-        border-radius: 5px;
-        margin-bottom: 20px;
-        border-left: 4px solid #FF4B4B;
-    }
-    
-    /* Sidebar styling */
-    section[data-testid="stSidebar"] {
-        background-color: #1E1E1E;
-    }
-    
-    /* Custom button styling */
-    .stButton > button[kind="primary"] {
-        background-color: #00CC96;
-        color: #0E1117;
-        border: none;
-        border-radius: 5px;
-    }
-    
-    /* Success/Error boxes */
-    .stSuccess {
-        background-color: #1E1E1E;
-        border-left: 4px solid #00CC96;
-    }
-    .stError {
-        background-color: #1E1E1E;
-        border-left: 4px solid #FF4B4B;
-    }
-    
-    /* Expander styling */
-    .streamlit-expanderHeader {
-        background-color: #1E1E1E;
-        border-radius: 5px;
-    }
-    
-    /* Dataframe styling */
-    .stDataFrame {
-        border: 1px solid #00CC96;
-    }
-</style>
-""",
-    unsafe_allow_html=True,
-)
+# ============================================================================
+# 📥 AUTO-LOAD SAMPLE DATA
+# ============================================================================
+@st.cache_data
+def load_sample_data():
+    """Auto-load synthetic sample data if exists"""
+    sample_path = Path("data/sales_data.csv")
+    if sample_path.exists():
+        return pd.read_csv(sample_path)
+    return None
 
 
-# ---------------------------------------------------------------------------
-# 📊 HELPER FUNCTIONS
-# ---------------------------------------------------------------------------
-def download_csv(df, filename="processed_data.csv"):
-    csv = df.to_csv(index=False).encode("utf-8")
-    st.download_button(label="📥 Download CSV", data=csv, file_name=filename, mime="text/csv")
+sample_df = load_sample_data()
+if sample_df is not None and st.session_state.df is None:
+    st.session_state.df = sample_df
+    st.session_state.sample_loaded = True
+else:
+    st.session_state.sample_loaded = False
 
 
-def download_excel(df, filename="processed_data.xlsx"):
-    from io import BytesIO
+# ============================================================================
+# 🎛️ SIDEBAR NAVIGATION
+# ============================================================================
+with st.sidebar:
+    st.markdown("## 📊 Data Science")
+    st.markdown("### Platform")
+    st.markdown("---")
 
-    output = BytesIO()
-    with pd.ExcelWriter(output, engine="openpyxl") as writer:
-        df.to_excel(writer, index=False)
-    st.download_button(
-        label="📥 Download Excel",
-        data=output.getvalue(),
-        file_name=filename,
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    st.markdown("**Navigation**")
+    page = st.radio(
+        "Go to",
+        [
+            "Data Hub",
+            "EDA Dashboard",
+            "Feature Lab",
+            "Hypothesis Lab",
+            "ML Studio",
+            "Reports",
+            "API Explorer",
+            "Executive Summary",
+        ],
+        label_visibility="collapsed",
+        index=0,
+    )
+    st.markdown("---")
+
+    # Data source selector
+    st.markdown("**Data Source**")
+    data_source = st.radio(
+        "Select",
+        ["Sample Data", "Upload New"],
+        horizontal=True,
+        index=0 if st.session_state.sample_loaded else 1,
     )
 
-
-def run_with_progress(func, *args, **kwargs):
-    with st.spinner("⏳ Processing... Please wait."):
-        try:
-            result = func(*args, **kwargs)
-            return result
-        except Exception as e:
-            st.error(f"❌ Operation failed: {str(e)}")
-            with st.expander("📜 Debug Traceback"):
-                st.code(traceback.format_exc())
-            return None
-
-
-# ---------------------------------------------------------------------------
-# 📊 GLOBAL METRICS BAR
-# ---------------------------------------------------------------------------
-def show_global_metrics(df):
-    if df is not None:
-        col1, col2, col3, col4 = st.columns(4)
-        with col1:
-            st.metric("Rows", df.shape[0])
-        with col2:
-            st.metric("Columns", df.shape[1])
-        with col3:
-            mem = df.memory_usage(deep=True).sum() / 1024 / 1024
-            st.metric("Memory (MB)", f"{mem:.2f}")
-        with col4:
-            numeric_cols = df.select_dtypes(include="number").shape[1]
-            cat_cols = df.select_dtypes(include="object").shape[1]
-            st.metric("Numeric/Cat", f"{numeric_cols}/{cat_cols}")
-
-
-# ---------------------------------------------------------------------------
-# 🧭 SIDEBAR NAVIGATION & PROGRESS
-# ---------------------------------------------------------------------------
-st.sidebar.title("🚀 Data Science Pipeline")
-steps = [
-    "1. Data Ingestion & Cleaning",
-    "2. Exploratory Data Analysis",
-    "3. Feature Engineering",
-    "4. Hypothesis Testing",
-    "5. Machine Learning",
-    "6. Insight Reporting",
-    "7. API Data Fetching",
-]
-
-current_step = st.sidebar.radio("🔹 Navigate to:", steps, index=0, key="step_selector")
-
-# Progress Tracker
-st.sidebar.markdown("### 📈 Pipeline Status")
-for i, step_name in enumerate(steps, 1):
-    completed = st.session_state.pipeline_completed.get(i, False)
-    icon = "✅" if completed else "⬜"
-    st.sidebar.markdown(f"{icon} **Step {i}**: {step_name.split('. ')[1]}")
-
-if st.sidebar.button("🔄 Reset Pipeline"):
-    for key in list(st.session_state.keys()):
-        del st.session_state[key]
-    st.rerun()
-
-# Show global metrics bar
-show_global_metrics(st.session_state.df)
-
-# ---------------------------------------------------------------------------
-# 📦 STEP 1: DATA INGESTION & CLEANING
-# ---------------------------------------------------------------------------
-if current_step == "1. Data Ingestion & Cleaning":
-    st.header("🧹 Task 1: Advanced Data Cleaning")
-    col1, col2 = st.columns([2, 1])
-
-    with col1:
+    if data_source == "Upload New":
         uploaded_file = st.file_uploader(
-            "Upload Dataset",
-            type=["csv", "xlsx", "json"],
-            help="Supports CSV, Excel, and JSON formats.",
+            "Upload CSV/Excel",
+            type=["csv", "xlsx"],
+            help="Upload your dataset",
         )
-
         if uploaded_file:
-            with st.spinner("Reading file..."):
-                try:
-                    if uploaded_file.name.endswith(".csv"):
-                        df = pd.read_csv(uploaded_file)
-                    elif uploaded_file.name.endswith(".xlsx"):
-                        df = pd.read_excel(uploaded_file)
-                    else:
-                        df = pd.read_json(uploaded_file)
-                except Exception as e:
-                    st.error(f"Failed to read file: {e}")
-                    df = None
-
-            if df is not None:
-                st.session_state.df = df
-                st.success(f"✅ Loaded {df.shape[0]} rows × {df.shape[1]} columns")
-
-                # Data Quality Overview
-                with st.expander("📊 Data Quality Overview"):
-                    col_q1, col_q2, col_q3 = st.columns(3)
-
-                    # Missing data gauge
-                    missing_pct = (df.isnull().sum().sum() / (df.shape[0] * df.shape[1])) * 100
-                    with col_q1:
-                        fig_gauge = go.Figure(
-                            go.Indicator(
-                                mode="gauge+number",
-                                value=missing_pct,
-                                title={"text": "Missing Data %"},
-                                gauge={
-                                    "axis": {"range": [0, 100]},
-                                    "bar": {"color": "#FF4B4B" if missing_pct > 10 else "#00CC96"},
-                                    "steps": [
-                                        {"range": [0, 5], "color": "#1E1E1E"},
-                                        {"range": [5, 10], "color": "#262730"},
-                                        {"range": [10, 100], "color": "#3E1E1E"},
-                                    ],
-                                },
-                            )
-                        )
-                        fig_gauge.update_layout(
-                            height=200, margin={"t": 30, "b": 10}, paper_bgcolor="rgba(0,0,0,0)"
-                        )
-                        st.plotly_chart(fig_gauge, use_container_width=True)
-
-                    # Data type distribution pie chart
-                    with col_q2:
-                        dtype_counts = df.dtypes.astype(str).value_counts()
-                        fig_pie = px.pie(
-                            values=dtype_counts.values,
-                            names=dtype_counts.index,
-                            title="Data Types",
-                            color_discrete_sequence=["#00CC96", "#FF4B4B", "#4B4BFF", "#FFB74D"],
-                        )
-                        fig_pie.update_layout(
-                            height=200, margin={"t": 30, "b": 10}, paper_bgcolor="rgba(0,0,0,0)"
-                        )
-                        st.plotly_chart(fig_pie, use_container_width=True)
-
-                    # Duplicate rows
-                    with col_q3:
-                        dup_count = df.duplicated().sum()
-                        fig_dup = go.Figure(
-                            go.Indicator(
-                                mode="number",
-                                value=dup_count,
-                                title={"text": "Duplicate Rows"},
-                                number={
-                                    "font": {"color": "#FF4B4B" if dup_count > 0 else "#00CC96"}
-                                },
-                            )
-                        )
-                        fig_dup.update_layout(
-                            height=200, margin={"t": 30, "b": 10}, paper_bgcolor="rgba(0,0,0,0)"
-                        )
-                        st.plotly_chart(fig_dup, use_container_width=True)
-
-                with st.expander("👀 Raw Data Preview"):
-                    st.dataframe(df.head(), use_container_width=True)
-
-                st.subheader("⚙️ Cleaning Configuration")
-                strategy = {}
-                num_cols = df.select_dtypes(include="number").columns.tolist()
-
-                for col in num_cols:
-                    strategy[col] = st.selectbox(
-                        f"Imputation for `{col}`",
-                        ["mean", "median", "mode", "none", "forward_fill"],
-                        key=f"imp_{col}",
-                    )
-
-                outlier_method = st.toggle("Enable IQR Outlier Capping", value=True)
-                threshold = st.slider(
-                    "IQR Multiplier", 1.0, 3.0, 1.5, help="Higher values = less aggressive capping."
+            try:
+                if uploaded_file.name.endswith(".csv"):
+                    st.session_state.df = pd.read_csv(uploaded_file)
+                else:
+                    st.session_state.df = pd.read_excel(uploaded_file)
+                st.success(
+                    f"✅ Loaded: {st.session_state.df.shape[0]} × {st.session_state.df.shape[1]}"
                 )
+            except Exception as e:
+                st.error(f"Error: {e}")
 
-                if st.button("🧼 Run Cleaning Pipeline", type="primary"):
-                    result = run_with_progress(
-                        agents["cleaning"].clean,
-                        df,
-                        strategy,
-                        {"method": "IQR" if outlier_method else None, "threshold": threshold},
-                    )
-                    if result is not None:
-                        st.session_state.df = result
-                        st.session_state.pipeline_completed[1] = True
-                        st.success("✅ Data cleaned successfully!")
-                        st.dataframe(result.head(), use_container_width=True)
-                        col_dl1, col_dl2 = st.columns(2)
-                        with col_dl1:
-                            download_csv(result, "cleaned_data.csv")
-                        with col_dl2:
-                            download_excel(result, "cleaned_data.xlsx")
-                    else:
-                        st.info("📤 Upload a dataset to begin.")
+    st.markdown("---")
 
-# ---------------------------------------------------------------------------
-# 📊 STEP 2: EXPLORATORY DATA ANALYSIS
-# ---------------------------------------------------------------------------
-elif current_step == "2. Exploratory Data Analysis":
-    st.header("📊 Task 2: Deep EDA")
+    # Quick stats
     if st.session_state.df is not None:
         df = st.session_state.df
-        col1, col2 = st.columns(2)
-        with col1:
-            target = st.selectbox("🎯 Target Variable", df.columns)
-            corr_method = st.radio(
-                "📐 Correlation Method", ["pearson", "spearman", "kendall"], horizontal=True
+        st.markdown(f"**Current Data**")
+        st.metric("Rows", df.shape[0])
+        st.metric("Columns", df.shape[1])
+        st.metric("Missing", f"{df.isnull().sum().sum():,}")
+
+
+# ============================================================================
+# 📄 PAGE ROUTING
+# ============================================================================
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PAGE 1: DATA HUB
+# ═══════════════════════════════════════════════════════════════════���═���═════════
+if page == "Data Hub":
+    st.markdown("# 📊 Data Hub")
+    st.markdown(
+        "<span style='color:var(--text-muted)'>Data ingestion & quality overview</span>",
+        unsafe_allow_html=True,
+    )
+
+    if st.session_state.df is not None:
+        df = st.session_state.df
+
+        # KPI Row
+        k1, k2, k3, k4 = st.columns(4)
+        kpi(k1, "Total Rows", df.shape[0])
+        kpi(k2, "Columns", df.shape[1])
+
+        missing_total = df.isnull().sum().sum()
+        missing_pct = (missing_total / (df.shape[0] * df.shape[1])) * 100
+        kpi(k3, "Missing Values", missing_pct, fmt="pct")
+
+        dupes = df.duplicated().sum()
+        kpi(k4, "Duplicates", dupes)
+
+        # Data Quality Section - LARGER COMPONENTS
+        st.markdown("<div class='section-head'>Data Quality Overview</div>", unsafe_allow_html=True)
+
+        # Row 1: Missing Gauge + Duplicates (side by side)
+        q1, q2 = st.columns(2)
+
+        # Missing gauge - LARGER
+        with q1:
+            fig_gauge = go.Figure(
+                go.Indicator(
+                    mode="gauge+number",
+                    value=missing_pct,
+                    title={"text": "Missing Data %", "font": {"size": 24}},
+                    number={"font": {"size": 48}},
+                    gauge={
+                        "axis": {"range": [0, 100], "tickfont": {"size": 16}},
+                        "bar": {"color": "#FF4B4B" if missing_pct > 10 else "#14ffec"},
+                        "steps": [
+                            {"range": [0, 5], "color": "#1E1E1E"},
+                            {"range": [5, 10], "color": "#262730"},
+                            {"range": [10, 100], "color": "#3E1E1E"},
+                        ],
+                    },
+                )
             )
+            fig_gauge.update_layout(height=400, paper_bgcolor="rgba(0,0,0,0)", margin={"t": 50})
+            st.plotly_chart(fig_gauge, use_container_width=True)
 
-        with col2:
-            show_distributions = st.checkbox("Show Distributions", value=True)
-            show_missing = st.checkbox("Show Missing Values", value=True)
-
-        if st.button("🔍 Run EDA", type="primary"):
-            results = run_with_progress(agents["eda"].analyze, df, target, corr_method)
-            if results:
-                st.session_state.context["eda_results"] = results
-                st.session_state.pipeline_completed[2] = True
-                st.success("✅ EDA completed!")
-
-                st.subheader("📈 Summary Statistics")
-                st.dataframe(results.get("summary", df.describe()), use_container_width=True)
-
-                if show_distributions:
-                    st.subheader("📊 Numeric Distributions")
-                    numeric_cols = df.select_dtypes("number").columns.tolist()
-                    if numeric_cols:
-                        selected_cols = st.multiselect(
-                            "Select columns", numeric_cols, default=numeric_cols[:5]
-                        )
-                        for col in selected_cols:
-                            fig_hist = px.histogram(
-                                df,
-                                x=col,
-                                title=f"Distribution of {col}",
-                                color_discrete_sequence=["#00CC96"],
-                            )
-                            fig_hist.update_layout(
-                                paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)"
-                            )
-                            st.plotly_chart(fig_hist, use_container_width=True)
-
-                # Top 10 correlations bar chart
-                st.subheader("🔗 Top Correlations")
-                corr_matrix = df.select_dtypes("number").corr(method=corr_method)
-                corr_pairs = []
-                for i in range(len(corr_matrix.columns)):
-                    for j in range(i + 1, len(corr_matrix.columns)):
-                        corr_pairs.append(
-                            {
-                                "Variable 1": corr_matrix.columns[i],
-                                "Variable 2": corr_matrix.columns[j],
-                                "Correlation": corr_matrix.iloc[i, j],
-                            }
-                        )
-                corr_df = (
-                    pd.DataFrame(corr_pairs)
-                    .sort_values("Correlation", key=abs, ascending=False)
-                    .head(10)
+        # Duplicates indicator - LARGER
+        with q2:
+            fig_dup = go.Figure(
+                go.Indicator(
+                    mode="number",
+                    value=dupes,
+                    title={"text": "Duplicate Rows", "font": {"size": 24}},
+                    number={"font": {"size": 48, "color": "#ef4444" if dupes > 0 else "#14ffec"}},
                 )
-                if not corr_df.empty:
-                    fig_corr_bar = px.bar(
-                        corr_df,
-                        x="Correlation",
-                        y="Variable 1",
-                        orientation="h",
-                        title="Top 10 Correlations",
-                        color="Correlation",
-                        color_continuous_scale=["#FF4B4B", "#00CC96"],
-                    )
-                    fig_corr_bar.update_layout(
-                        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)"
-                    )
-                    st.plotly_chart(fig_corr_bar, use_container_width=True)
+            )
+            fig_dup.update_layout(height=400, paper_bgcolor="rgba(0,0,0,0)", margin={"t": 50})
+            st.plotly_chart(fig_dup, use_container_width=True)
 
-                # Correlation heatmap
-                st.subheader("🗺️ Correlation Heatmap")
-                fig_heat = px.imshow(
-                    corr_matrix,
-                    text_auto=".2f",
-                    color_continuous_scale="RdBu",
-                    title=f"{corr_method.title()} Correlation Matrix",
-                )
-                fig_heat.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
-                st.plotly_chart(fig_heat, use_container_width=True)
+        # Row 2: Data types pie - FULL WIDTH LARGER
+        st.markdown("### 📊 Data Types Distribution")
+        dtype_counts = df.dtypes.astype(str).value_counts()
+        fig_pie = px.pie(
+            values=dtype_counts.values,
+            names=dtype_counts.index,
+            title="Column Types",
+            color_discrete_sequence=["#14ffec", "#ef4444", "#0ea5e9", "#f59e0b"],
+        )
+        fig_pie.update_layout(
+            height=450,
+            paper_bgcolor="rgba(0,0,0,0)",
+            font=dict(size=16),
+            title_font_size=24,
+            title_x=0.5,
+        )
+        st.plotly_chart(fig_pie, use_container_width=True)
 
-                if show_missing:
-                    st.subheader("❌ Missing Values")
-                    missing_df = pd.DataFrame(df.isnull().sum(), columns=["Missing"])
-                    missing_df = missing_df[missing_df["Missing"] > 0]
-                    if not missing_df.empty:
-                        missing_df["%"] = (missing_df["Missing"] / len(df) * 100).round(2)
-                        fig_missing = px.bar(
-                            missing_df,
-                            x=missing_df.index,
-                            y="Missing",
-                            title="Missing Values by Column",
-                            color="Missing",
-                            color_continuous_scale=["#00CC96", "#FF4B4B"],
-                        )
-                        fig_missing.update_layout(
-                            paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)"
-                        )
-                        st.plotly_chart(fig_missing, use_container_width=True)
+        # Column Details
+        st.markdown("<div class='section-head'>Column Details</div>", unsafe_allow_html=True)
+
+        col_detail = st.selectbox("Select Column", df.columns)
+        col_data = df[col_detail]
+
+        c1, c2, c3, c4 = st.columns(4)
+        kpi(c1, "Type", str(col_data.dtype))  # Passes string directly now
+        kpi(c2, "Unique", col_data.nunique())
+        kpi(c3, "Missing", col_data.isnull().sum())
+        kpi(c4, "Missing %", (col_data.isnull().sum() / len(df)) * 100, fmt="pct")
+
+        # Data preview
+        st.markdown("<div class='section-head'>Data Preview</div>", unsafe_allow_html=True)
+        st.dataframe(df.head(10), use_container_width=True)
+
+        # Download
+        csv = df.to_csv(index=False).encode("utf-8")
+        st.download_button("📥 Download CSV", csv, "data_hub.csv", "text/csv")
+
     else:
-        st.warning("⚠️ Please complete Step 1 first.")
+        st.markdown(
+            "<div class='info-box'>📤 Upload a dataset or use Sample Data from sidebar</div>",
+            unsafe_allow_html=True,
+        )
 
-# ---------------------------------------------------------------------------
-# ⚙️ STEP 3: FEATURE ENGINEERING
-# ---------------------------------------------------------------------------
-elif current_step == "3. Feature Engineering":
-    st.header("⚙️ Task 3: Feature Engineering")
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PAGE 2: EDA DASHBOARD
+# ═══════════════════════════════════════════════════════════════════════════════
+elif page == "EDA Dashboard":
+    st.markdown("# 📈 EDA Dashboard")
+    st.markdown(
+        "<span style='color:var(--text-muted)'>Deep exploratory data analysis</span>",
+        unsafe_allow_html=True,
+    )
+
     if st.session_state.df is not None:
         df = st.session_state.df
-        num_cols = df.select_dtypes("number").columns.tolist()
+        eda = agents["eda"]
 
-        with st.expander("📅 Date & Ratio Features"):
-            date_cols = st.multiselect(
-                "Date Columns", df.select_dtypes("datetime").columns.tolist()
-            )
-            num_col1 = st.selectbox("Numerator", num_cols, key="ratio_num")
-            num_col2 = st.selectbox(
-                "Denominator", [c for c in num_cols if c != num_col1], key="ratio_den"
-            )
-
-        with st.expander("🔢 Scaling & Encoding"):
-            scale_method = st.selectbox(
-                "Scaling Strategy", ["StandardScaler", "MinMaxScaler", "RobustScaler", "None"]
-            )
-            encode_method = st.selectbox(
-                "Categorical Encoding", ["OneHot", "Label", "Target", "None"]
-            )
+        # Settings
+        c1, c2 = st.columns(2)
+        with c1:
             target = st.selectbox(
-                "Target Column (for encoding)",
+                "Target Variable",
                 df.columns,
-                index=df.columns.get_loc(num_cols[0]) if num_cols else 0,
+                index=len(df.columns) - 1 if len(df.columns) > 0 else 0,
             )
+        with c2:
+            corr_method = st.radio("Correlation Method", ["pearson", "spearman"], horizontal=True)
 
-        if st.button("🛠️ Engineer Features", type="primary"):
-            config = {
-                "date_columns": date_cols,
-                "ratio_pairs": [(num_col1, num_col2)],
-                "scaling": scale_method,
-                "encoding": encode_method,
-                "target": target,
-            }
-            feat_df = run_with_progress(agents["features"].transform, df, config)
-            if feat_df is not None:
-                st.session_state.df = feat_df
-                st.session_state.pipeline_completed[3] = True
-                st.success("✅ Features engineered successfully!")
-                st.dataframe(feat_df.head(), use_container_width=True)
-                col_dl1, col_dl2 = st.columns(2)
-                with col_dl1:
-                    download_csv(feat_df, "featured_data.csv")
-                with col_dl2:
-                    download_excel(feat_df, "featured_data.xlsx")
-    else:
-        st.warning("⚠️ Please load data first.")
+        # Analyze
+        results = eda.analyze(df, target, corr_method)
 
-# ---------------------------------------------------------------------------
-# 🧪 STEP 4: HYPOTHESIS TESTING
-# ---------------------------------------------------------------------------
-elif current_step == "4. Hypothesis Testing":
-    st.header("🧪 Task 4: Hypothesis Testing")
-    if st.session_state.df is not None:
-        h0 = st.text_input(
-            "H0 (Null Hypothesis)", "There is no significant difference between groups."
+        # KPIs
+        st.markdown("<div class='section-head'>Key Statistics</div>", unsafe_allow_html=True)
+
+        s1, s2, s3, s4 = st.columns(4)
+        kpi(
+            s1,
+            "Target Mean",
+            df[target].mean() if pd.api.types.is_numeric_dtype(df[target]) else "N/A",
+            fmt="dec",
         )
-        h1 = st.text_input("H1 (Alternative Hypothesis)", "There is a significant difference.")
+        kpi(
+            s2,
+            "Target Std",
+            df[target].std() if pd.api.types.is_numeric_dtype(df[target]) else "N/A",
+            fmt="dec",
+        )
+        kpi(s3, "Skewness", results["target_info"]["skew"], fmt="dec")
+        kpi(s4, "Unique Values", results["target_info"]["unique_values"])
 
-        col1, col2 = st.columns(2)
-        with col1:
-            test_type = st.selectbox(
-                "🧪 Test Type", ["t-test", "chi-square", "anova", "mann-whitney"]
+        # Correlation Heatmap
+        st.markdown("<div class='section-head'>Correlation Analysis</div>", unsafe_allow_html=True)
+
+        corr_matrix = df.select_dtypes(include="number").corr(method=corr_method)
+        fig_heat = px.imshow(
+            corr_matrix,
+            text_auto=".2f",
+            color_continuous_scale="RdBu",
+            title=f"{corr_method.title()} Correlation",
+        )
+        fig_heat.update_layout(
+            paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(color="white")
+        )
+        st.plotly_chart(fig_heat, use_container_width=True)
+
+        # Top Correlations
+        st.markdown("<div class='section-head'>Top Correlations</div>", unsafe_allow_html=True)
+        corr_pairs = eda.get_correlation_pairs(df, corr_method, 0.3)
+        # Drop NaN and filter valid pairs (column name is lowercase)
+        corr_pairs = corr_pairs.dropna(subset=["correlation"])
+
+        if not corr_pairs.empty and len(corr_pairs) > 0:
+            top_corr = corr_pairs.head(10).reset_index(drop=True)
+            # Use lowercase column names
+            fig_corr = px.bar(
+                top_corr,
+                x="correlation",
+                y="variable_1",
+                orientation="h",
+                color="correlation",
+                color_continuous_scale=["#ef4444", "#14ffec"],
+                title="Top 10 Correlation Pairs",
             )
-            col_a = st.selectbox("Column A", st.session_state.df.columns)
-        with col2:
-            col_b = st.selectbox(
-                "Column B (optional)", ["None"] + st.session_state.df.columns.tolist()
+            fig_corr.update_layout(
+                paper_bgcolor="rgba(0,0,0,0)",
+                plot_bgcolor="rgba(0,0,0,0)",
+                font=dict(color="white"),
             )
-            alpha = st.slider("Significance Level (α)", 0.01, 0.10, 0.05, step=0.01)
+            st.plotly_chart(fig_corr, use_container_width=True)
+        else:
+            st.info("No significant correlations found (threshold: 0.3)")
 
-        if st.button("🔬 Run Test", type="primary"):
-            config = {
-                "column_a": col_a,
-                "column_b": col_b if col_b != "None" else None,
-                "alpha": alpha,
-            }
-            res = run_with_progress(
-                agents["stats"].run_test, st.session_state.df, test_type, config
-            )
-            if res:
-                st.session_state.context["stats_result"] = res
-                st.session_state.pipeline_completed[4] = True
-                st.success("✅ Test completed!")
+        # Distribution
+        st.markdown("<div class='section-head'>Distributions</div>", unsafe_allow_html=True)
 
-                # P-value radial gauge
-                p_val = res.get("p_value", 1.0)
-                col_g1, col_g2 = st.columns(2)
+        num_cols = df.select_dtypes(include="number").columns.tolist()
+        if num_cols:
+            dist_col = st.selectbox("Select Column", num_cols, index=0)
 
-                with col_g1:
-                    fig_pval = go.Figure(
-                        go.Indicator(
-                            mode="gauge+number",
-                            value=p_val,
-                            title={"text": "P-Value"},
-                            gauge={
-                                "axis": {"range": [0, 1]},
-                                "bar": {"color": "#00CC96" if p_val < alpha else "#FF4B4B"},
-                                "steps": [
-                                    {"range": [0, alpha], "color": "#1E3E1E"},
-                                    {"range": [alpha, 1], "color": "#3E1E1E"},
-                                ],
-                                "threshold": {
-                                    "line": {"color": "white", "width": 4},
-                                    "thickness": 0.75,
-                                    "value": alpha,
-                                },
-                            },
-                        )
-                    )
-                    fig_pval.update_layout(height=250, paper_bgcolor="rgba(0,0,0,0)")
-                    st.plotly_chart(fig_pval, use_container_width=True)
-
-                with col_g2:
-                    if p_val < alpha:
-                        st.success(f"📉 **Reject H0**\n\np-value ({p_val:.4f}) < α ({alpha})")
-                    else:
-                        st.info(f"📈 **Fail to Reject H0**\n\np-value ({p_val:.4f}) ≥ α ({alpha})")
-
-                st.json(res)
+            # Violin plot
+            if df.select_dtypes(include="object").columns.any():
+                cat_cols = df.select_dtypes(include="object").columns.tolist()
+                cat_col = st.selectbox("Group by", cat_cols)
+                fig_violin = px.violin(
+                    df,
+                    y=dist_col,
+                    x=cat_col,
+                    box=True,
+                    points="outliers",
+                    title=f"Distribution: {dist_col}",
+                )
+                fig_violin.update_layout(
+                    paper_bgcolor="rgba(0,0,0,0)",
+                    plot_bgcolor="rgba(0,0,0,0)",
+                    font=dict(color="white"),
+                )
+                st.plotly_chart(fig_violin, use_container_width=True)
+            else:
+                # Histogram
+                fig_hist = px.histogram(df, x=dist_col, nbins=30, title=f"Distribution: {dist_col}")
+                fig_hist.update_layout(
+                    paper_bgcolor="rgba(0,0,0,0)",
+                    plot_bgcolor="rgba(0,0,0,0)",
+                    font=dict(color="white"),
+                )
+                st.plotly_chart(fig_hist, use_container_width=True)
     else:
-        st.warning("⚠️ Please load data first.")
+        st.warning("⚠️ Load data first from Data Hub")
 
-# ---------------------------------------------------------------------------
-# 🤖 STEP 5: MACHINE LEARNING
-# ---------------------------------------------------------------------------
-elif current_step == "5. Machine Learning":
-    st.header("🤖 Task 5: Machine Learning")
+
+# ═══════════════════════════════════════════════════════════════════════
+# PAGE 3: FEATURE LAB
+# ═══════════════════════════════════════════════════════════════════════
+elif page == "Feature Lab":
+    st.markdown("# ⚙️ Feature Lab")
+    st.markdown(
+        "<span style='color:var(--text-muted)'>Feature engineering & transformations</span>",
+        unsafe_allow_html=True,
+    )
+
+    if st.session_state.df is not None:
+        df = st.session_state.df.copy()
+        fe = agents["features"]
+
+        # Feature creation options
+        with st.expander("📅 Date Features", expanded=False):
+            date_cols = df.select_dtypes(include="datetime").columns.tolist()
+            if date_cols:
+                selected_dates = st.multiselect("Date Columns", date_cols)
+                for col in selected_dates:
+                    df[col] = pd.to_datetime(df[col])
+                    df[f"{col}_year"] = df[col].dt.year
+                    df[f"{col}_month"] = df[col].dt.month
+                    df[f"{col}_day"] = df[col].dt.day
+                st.success(f"✅ Created date features for {len(selected_dates)} columns")
+            else:
+                st.info("No datetime columns found")
+
+        with st.expander("📐 Ratio Features"):
+            num_cols = df.select_dtypes(include="number").columns.tolist()
+            c1, c2 = st.columns(2)
+            with c1:
+                num_col = st.selectbox("Numerator", num_cols, key="ratio_num")
+            with c2:
+                den_col = st.selectbox(
+                    "Denominator", [c for c in num_cols if c != num_col], key="ratio_den"
+                )
+
+            if st.button("Create Ratio"):
+                df[f"{num_col}_{den_col}_ratio"] = df[num_col] / (df[den_col] + 1e-9)
+                st.success(f"✅ Created {num_col}_{den_col}_ratio")
+
+        with st.expander("🔢 Interaction Features"):
+            num_cols = df.select_dtypes(include="number").columns.tolist()
+            selected = st.multiselect("Select Columns", num_cols, default=num_cols[:3])
+
+            if st.button("Create Interactions") and selected:
+                orig_cols = list(df.columns)
+                df = fe.create_interaction_features(
+                    df, selected, include_products=True, include_powers=True
+                )
+                new_cols = [c for c in df.columns if c not in orig_cols]
+                st.success(f"✅ Created {len(new_cols)} interaction features")
+
+        with st.expander("📊 Scaling"):
+            scale_method = st.selectbox(
+                "Method", ["StandardScaler", "MinMaxScaler", "RobustScaler", "None"]
+            )
+            if scale_method != "None" and st.button("Apply Scaling"):
+                df = fe.transform(df, {"scaling": scale_method})
+                st.success(f"✅ Applied {scale_method}")
+
+        with st.expander("🏷️ Encoding"):
+            cat_cols = df.select_dtypes(include="object").columns.tolist()
+            if cat_cols:
+                encode_method = st.selectbox("Method", ["Label", "OneHot"])
+                target_col = st.selectbox(
+                    "Target (optional)", ["None"] + df.columns.tolist(), index=0
+                )
+                if st.button("Apply Encoding"):
+                    target = target_col if target_col != "None" else None
+                    df = fe.apply_encoding(df, encode_method, target)
+                    st.success(f"✅ Applied {encode_method} encoding")
+            else:
+                st.info("No categorical columns found")
+
+        # Show result
+        st.markdown("<div class='section-head'>Engineered Data</div>", unsafe_allow_html=True)
+        st.dataframe(df.head(), use_container_width=True)
+
+        # Save to session
+        if st.button("💾 Save to Pipeline"):
+            st.session_state.df = df
+            st.session_state.pipeline_completed[3] = True
+            st.success("✅ Data saved!")
+
+    else:
+        st.warning("⚠️ Load data first")
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# PAGE 4: HYPOTHESIS LAB
+# ═══════════════════════════════════════════════════════════════════════
+elif page == "Hypothesis Lab":
+    st.markdown("# 🧪 Hypothesis Lab")
+    st.markdown(
+        "<span style='color:var(--text-muted)'>Statistical testing & inference</span>",
+        unsafe_allow_html=True,
+    )
+
     if st.session_state.df is not None:
         df = st.session_state.df
-        target = st.selectbox("🎯 Target Variable", df.columns)
-        problem_type = st.radio(
-            "📊 Problem Type", ["Classification", "Regression"], horizontal=True
-        )
 
-        col1, col2, col3 = st.columns(3)
-        with col1:
+        # Hypothesis inputs
+        h0 = st.text_input("H₀ (Null Hypothesis)", "There is no significant difference...")
+        h1 = st.text_input("H₁ (Alternative)", "There is a significant difference...")
+
+        # Test settings
+        c1, c2 = st.columns(2)
+        with c1:
+            test_type = st.selectbox("Test Type", ["t-test", "chi-square", "anova", "mann-whitney"])
+        with c2:
+            alpha = st.slider("Significance (α)", 0.01, 0.10, 0.05)
+
+        # Column selection
+        num_cols = df.select_dtypes(include="number").columns.tolist()
+        cat_cols = df.select_dtypes(include="object").columns.tolist()
+
+        col_a = st.selectbox("Column A / Variable", num_cols + cat_cols)
+
+        col_b = None
+        if test_type in ["chi-square", "anova", "mann-whitney"]:
+            col_b = st.selectbox("Column B (Grouping)", ["None"] + num_cols + cat_cols)
+
+        # Run test
+        if st.button("🔬 Run Test"):
+            config = {"column_a": col_a, "alpha": alpha}
+            if col_b and col_b != "None":
+                config["column_b"] = col_b
+
+            result = agents["stats"].run_test(df, test_type, config)
+
+            if "statistic" in result:
+                st.session_state.context["stats_result"] = result
+                st.session_state.pipeline_completed[4] = True
+
+                # Results display
+                st.markdown("<div class='section-head'>Test Results</div>", unsafe_allow_html=True)
+
+                r1, r2 = st.columns(2)
+                kpi(r1, "Test Statistic", result["statistic"], fmt="dec")
+                kpi(r2, "P-Value", result["p_value"], fmt="dec")
+
+                # Interpretation
+                p_val = result["p_value"]
+                decision = "Reject H₀" if p_val < alpha else "Fail to Reject H₀"
+
+                if p_val < alpha:
+                    st.markdown(
+                        f"<div class='info-box'><strong>✅ {decision}</strong><br>p-value ({p_val:.4f}) < α ({alpha})<br>The result is statistically significant.</div>",
+                        unsafe_allow_html=True,
+                    )
+                else:
+                    st.markdown(
+                        f"<div class='alert-box'><strong>❌ {decision}</strong><br>p-value ({p_val:.4f}) ≥ α ({alpha})<br>No significant difference found.</div>",
+                        unsafe_allow_html=True,
+                    )
+
+                # JSON result
+                st.json(result)
+            else:
+                st.error(f"Error: {result.get('error', 'Unknown error')}")
+
+    else:
+        st.warning("⚠️ Load data first")
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# PAGE 5: ML STUDIO
+# ═══════════════════════════════════════════════════════════════════════
+elif page == "ML Studio":
+    st.markdown("# 🤖 ML Studio")
+    st.markdown(
+        "<span style='color:var('text-muted')>Machine learning training & evaluation</span>",
+        unsafe_allow_html=True,
+    )
+
+    if st.session_state.df is not None:
+        df = st.session_state.df
+
+        # Settings
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            target = st.selectbox("Target", df.columns)
+        with c2:
+            problem_type = st.radio("Problem", ["Classification", "Regression"], horizontal=True)
+        with c3:
             model_choice = st.selectbox(
-                "🤖 Algorithm",
-                ["Random Forest", "Gradient Boosting", "Logistic Regression", "SVM", "XGBoost"]
+                "Algorithm",
+                ["Random Forest", "Gradient Boosting", "Logistic Regression"]
                 if problem_type == "Classification"
-                else ["Random Forest", "Gradient Boosting", "Ridge", "Lasso", "XGBoost"],
+                else ["Random Forest", "Gradient Boosting", "Ridge", "Lasso"],
             )
-        with col2:
-            test_size = st.slider("📉 Test Size", 0.1, 0.4, 0.2)
-        with col3:
-            seed = st.number_input("🌱 Random Seed", value=42)
 
-        if st.button("🚀 Train Model", type="primary"):
-            config = {
-                "target": target,
-                "test_size": test_size,
-                "random_seed": seed,
-                "model_type": model_choice,
-                "problem_type": problem_type,
-            }
-            res = run_with_progress(agents["model"].train_and_evaluate, df, target, config)
-            if res:
-                st.session_state.context["model_metrics"] = res.get("metrics", {})
+        c4, c5 = st.columns(2)
+        with c4:
+            test_size = st.slider("Test Size", 0.1, 0.4, 0.2)
+        with c5:
+            seed = st.number_input("Random Seed", value=42)
+
+        # Train
+        if st.button("🚀 Train Model"):
+            # Clean data: drop rows with missing target or non-numeric columns
+            df_clean = df.dropna(subset=[target]).copy()
+
+            # Keep only numeric columns for features
+            numeric_cols = df_clean.select_dtypes(include="number").columns.tolist()
+            if target not in numeric_cols:
+                st.error(f"⚠️ Target '{target}' must be numeric")
+            else:
+                df_clean = df_clean[numeric_cols]
+
+                # Also drop any remaining NaN in features
+                df_clean = df_clean.dropna()
+
+                if len(df_clean) < 10:
+                    st.error("⚠️ Not enough data after cleaning. Need at least 10 rows.")
+                else:
+                    config = {
+                        "target": target,
+                        "test_size": test_size,
+                        "random_seed": seed,
+                        "model_type": model_choice,
+                        "problem_type": problem_type,
+                    }
+
+                    with st.spinner("Training..."):
+                        result = agents["model"].train_and_evaluate(df_clean, target, config)
+
+            if result:
+                st.session_state.context["model_metrics"] = result["metrics"]
                 st.session_state.pipeline_completed[5] = True
-                st.success("✅ Model trained successfully!")
 
-                metrics = res.get("metrics", {})
+                # Metrics
+                st.markdown(
+                    "<div class='section-head'>Model Performance</div>", unsafe_allow_html=True
+                )
 
-                # Metrics display
-                col_m1, col_m2, col_m3 = st.columns(3)
-                for i, (k, v) in enumerate(metrics.items()):
-                    with [col_m1, col_m2, col_m3][i]:
-                        st.metric(k.upper(), f"{v:.4f}" if isinstance(v, float) else v)
+                m = result["metrics"]
+                cols = st.columns(len(m) - 1 if "classification_report" in m else len(m))
 
-                # Visualizations
-                st.subheader("📊 Model Visualizations")
+                for i, (k, v) in enumerate(m.items()):
+                    if k != "classification_report":
+                        with cols[i % len(cols)]:
+                            kpi(
+                                cols[i % len(cols)],
+                                k.upper(),
+                                v if not isinstance(v, (list, dict)) else str(v)[:10],
+                                fmt="dec",
+                            )
 
-                if problem_type == "Classification":
-                    # Confusion Matrix placeholder (simulated)
-                    st.info("🔄 Training to generate confusion matrix...")
-                    # For now, show a placeholder
-                    fig_cm = go.Figure(
-                        data=go.Heatmap(
-                            z=[[10, 2], [1, 15]],
-                            x=["Predicted 0", "Predicted 1"],
-                            y=["Actual 0", "Actual 1"],
-                            colorscale=[[0, "#1E1E1E"], [1, "#00CC96"]],
-                            showscale=True,
-                        )
+                # Confusion Matrix (Classification)
+                if problem_type == "Classification" and "confusion_matrix" in m:
+                    st.markdown(
+                        "<div class='section-head'>Confusion Matrix</div>", unsafe_allow_html=True
                     )
-                    fig_cm.update_layout(
-                        title="Confusion Matrix (Simulated)",
-                        paper_bgcolor="rgba(0,0,0,0)",
-                        plot_bgcolor="rgba(0,0,0,0)",
+
+                    cm = m["confusion_matrix"]
+                    fig_cm = px.imshow(
+                        cm,
+                        text_auto=True,
+                        color_continuous_scale=["#0d1411", "#14ffec"],
+                        title="Confusion Matrix",
                     )
+                    fig_cm.update_layout(paper_bgcolor="rgba(0,0,0,0)", font=dict(color="white"))
                     st.plotly_chart(fig_cm, use_container_width=True)
 
-                    # ROC Curve placeholder
-                    st.info("📈 ROC Curve would appear here after full implementation")
+                # ROC Curve
+                if "roc_auc" in m:
+                    st.markdown("<div class='section-head'>ROC Curve</div>", unsafe_allow_html=True)
+                    st.metric("ROC-AUC", f"{m['roc_auc']:.4f}")
 
-                else:  # Regression
-                    # Prediction vs Actual scatter
-                    st.subheader("📈 Prediction vs Actual")
-                    # Generate sample for visualization
-                    import numpy as np
+                    if "roc_curve" in m:
+                        roc = m["roc_curve"]
+                        fig_roc = go.Figure()
+                        fig_roc.add_trace(
+                            go.Scatter(
+                                x=roc["fpr"],
+                                y=roc["tpr"],
+                                mode="lines",
+                                name=f"ROC (AUC={m['roc_auc']:.3f})",
+                                line=dict(color="#14ffec", width=2),
+                            )
+                        )
+                        fig_roc.add_trace(
+                            go.Scatter(
+                                x=[0, 1],
+                                y=[0, 1],
+                                mode="lines",
+                                name="Random",
+                                line=dict(color="gray", dash="dash"),
+                            )
+                        )
+                        fig_roc.update_layout(
+                            xaxis_title="False Positive Rate",
+                            yaxis_title="True Positive Rate",
+                            paper_bgcolor="rgba(0,0,0,0)",
+                            plot_bgcolor="rgba(0,0,0,0)",
+                            font=dict(color="white"),
+                        )
+                        st.plotly_chart(fig_roc, use_container_width=True)
 
-                    n = min(50, len(df))
-                    y_actual = np.random.randn(n).cumsum() + 50
-                    y_pred = y_actual + np.random.randn(n) * 0.5
+                # Feature Importance
+                if result.get("feature_importances"):
+                    st.markdown(
+                        "<div class='section-head'>Feature Importance</div>", unsafe_allow_html=True
+                    )
 
-                    fig_scatter = px.scatter(
-                        x=y_actual,
-                        y=y_pred,
-                        labels={"x": "Actual Values", "y": "Predicted Values"},
-                        title="Prediction vs Actual",
-                        color_discrete_sequence=["#00CC96"],
-                    )
-                    fig_scatter.add_shape(
-                        type="line",
-                        x0=min(y_actual),
-                        y0=min(y_actual),
-                        x1=max(y_actual),
-                        y1=max(y_actual),
-                        line=dict(color="#FF4B4B", dash="dash"),
-                    )
-                    fig_scatter.update_layout(
-                        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)"
-                    )
-                    st.plotly_chart(fig_scatter, use_container_width=True)
+                    fi = result["feature_importances"]
+                    fi_df = pd.DataFrame(list(fi.items()), columns=["Feature", "Importance"])
+                    fi_df = fi_df.sort_values("Importance", ascending=True).tail(10)
 
-                    # Residual plot
-                    st.subheader("📉 Residual Plot")
-                    residuals = y_actual - y_pred
-                    fig_res = px.scatter(
-                        x=y_pred,
-                        y=residuals,
-                        labels={"x": "Predicted Values", "y": "Residuals"},
-                        title="Residual Plot",
-                        color_discrete_sequence=["#FF4B4B"],
+                    fig_fi = px.bar(
+                        fi_df,
+                        x="Importance",
+                        y="Feature",
+                        orientation="h",
+                        title="Top 10 Features",
                     )
-                    fig_res.add_hline(y=0, line_dash="dash", line_color="#00CC96")
-                    fig_res.update_layout(
-                        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)"
+                    fig_fi.update_layout(
+                        paper_bgcolor="rgba(0,0,0,0)",
+                        plot_bgcolor="rgba(0,0,0,0)",
+                        font=dict(color="white"),
                     )
-                    st.plotly_chart(fig_res, use_container_width=True)
+                    st.plotly_chart(fig_fi, use_container_width=True)
 
-                if "model" in res:
-                    st.download_button(
-                        "💾 Download Model (Pickle)",
-                        data=res["model"],
-                        file_name="trained_model.pkl",
-                    )
+                st.success("✅ Model trained!")
     else:
-        st.warning("⚠️ Please load data first.")
+        st.warning("⚠️ Load data first")
 
-# ---------------------------------------------------------------------------
-# 📝 STEP 6: INSIGHT REPORTING
-# ---------------------------------------------------------------------------
-elif current_step == "6. Insight Reporting":
-    st.header("📝 Task 6: Insight Reporting")
-    title = st.text_input("📄 Report Title", "Data Science Project Report")
-    audience = st.selectbox("👥 Audience", ["Technical", "Executive", "General"])
 
-    if st.button("📜 Generate Final Report", type="primary"):
-        path = run_with_progress(
-            agents["report"].generate_report, title, audience, st.session_state.context
+# ═══════════════════════════════════════════════════════════════════════
+# PAGE 6: REPORTS
+# ═══════════════════════════════════════════════════════════════════════
+elif page == "Reports":
+    st.markdown("# 📝 Reports")
+    st.markdown(
+        "<span style='color:var(--text-muted)'>Generate detailed insight reports</span>",
+        unsafe_allow_html=True,
+    )
+
+    # Report settings
+    col1, col2 = st.columns(2)
+    with col1:
+        title = st.text_input("Report Title", "Data Science Analysis Report")
+    with col2:
+        audience = st.selectbox("Audience", ["Technical", "Executive", "General"])
+
+    # Dataset info if available
+    dataset_info = {}
+    if st.session_state.df is not None:
+        df = st.session_state.df
+        dataset_info = {
+            "rows": len(df),
+            "columns": len(df.columns),
+            "missing": int(df.isnull().sum().sum()),
+            "duplicates": int(df.duplicated().sum()),
+            "dtypes": df.dtypes.astype(str).value_counts().to_dict(),
+        }
+
+    # Build context from session state
+    context = {}
+
+    # Data quality
+    if dataset_info:
+        missing_pct = (
+            dataset_info["missing"] / (dataset_info["rows"] * dataset_info["columns"])
+        ) * 100
+        context["data_quality"] = {
+            "missing_pct": missing_pct,
+            "duplicates": dataset_info["duplicates"],
+            "quality_score": 100 - missing_pct,
+        }
+
+    # EDA results from session state
+    if st.session_state.context.get("eda_results"):
+        eda = st.session_state.context["eda_results"]
+        context["eda"] = eda
+        # Add top correlations
+        if st.session_state.df is not None and "eda_results" in st.session_state.context:
+            try:
+                from ds_platform.agents.eda import EDAAgent
+
+                eda_agent = EDAAgent()
+                corr = eda_agent.get_correlation_pairs(st.session_state.df, "pearson", 0.3).head(5)
+                context["eda"]["top_correlations"] = [
+                    {"var1": r["variable_1"], "var2": "variable_2", "corr": r["correlation"]}
+                    for _, r in corr.iterrows()
+                ]
+            except:
+                pass
+
+    # Model metrics
+    if st.session_state.context.get("model_metrics"):
+        context["model"] = st.session_state.context["model_metrics"]
+
+    # Stats results
+    if st.session_state.context.get("stats_result"):
+        context["stats"] = st.session_state.context["stats_result"]
+
+    # Generate report
+    if st.button("📜 Generate Detailed Report", type="primary"):
+        path = agents["report"].generate_report(
+            title=title,
+            audience=audience,
+            context=context,
+            dataset_info=dataset_info if dataset_info else None,
         )
+
         if path:
             st.session_state.pipeline_completed[6] = True
-            st.success(f"✅ Report saved to `{path}`")
+            st.success(f"✅ Report saved to {path}")
+
+            # Show report preview
             with open(path, "r", encoding="utf-8") as f:
-                st.markdown(f.read())
-            st.download_button(
-                "📥 Download Markdown",
-                data=open(path, "rb"),
-                file_name="report.md",
-                mime="text/markdown",
+                report_content = f.read()
+
+            st.markdown("<div class='section-head'>Report Preview</div>", unsafe_allow_html=True)
+            st.markdown(report_content, unsafe_allow_html=True)
+
+    # Download options
+    st.markdown("<div class='section-head'>Download Options</div>", unsafe_allow_html=True)
+
+    col1, col2 = st.columns(2)
+    with col1:
+        # Generate and offer markdown download
+        if st.session_state.df is not None:
+            # Get the actual report content
+            path = agents["report"].generate_report(
+                title=title,
+                audience=audience,
+                context=context,
+                dataset_info=dataset_info if dataset_info else None,
+            )
+            if path and Path(path).exists():
+                with open(path, "rb") as f:
+                    st.download_button(
+                        "📥 Download Markdown Report",
+                        data=f.read(),
+                        file_name="ds_analysis_report.md",
+                        mime="text/markdown",
+                    )
+        else:
+            st.info("👆 Generate a report first")
+
+    with col2:
+        # Try to generate PDF
+        try:
+            from ds_platform.agents.report import convert_markdown_to_pdf
+
+            # First generate markdown
+            if st.session_state.df is not None:
+                md_path = agents["report"].generate_report(
+                    title=title,
+                    audience=audience,
+                    context=context,
+                    dataset_info=dataset_info if dataset_info else None,
+                )
+
+                # Try convert to PDF
+                pdf_path = convert_markdown_to_pdf(md_path)
+
+                if pdf_path and Path(pdf_path).exists():
+                    with open(pdf_path, "rb") as f:
+                        st.download_button(
+                            "📥 Download PDF Report",
+                            data=f.read(),
+                            file_name="ds_analysis_report.pdf",
+                            mime="application/pdf",
+                        )
+                else:
+                    st.warning("PDF requires weasyprint: pip install weasyprint")
+        except Exception as e:
+            st.warning(f"PDF not available: {str(e)[:50]}")
+
+    # Show what data will be included
+    if context:
+        st.markdown("<div class='section-head'>Report Contents</div>", unsafe_allow_html=True)
+
+        # Preview sections
+        sections = []
+        if dataset_info:
+            sections.append("✅ Dataset Overview")
+        if context.get("eda"):
+            sections.append("✅ EDA Analysis")
+        if context.get("model"):
+            sections.append("✅ ML Model Performance")
+        if context.get("stats"):
+            sections.append("✅ Statistical Tests")
+
+        if sections:
+            for s in sections:
+                st.markdown(f"- {s}")
+        else:
+            st.info("Run pipeline stages first to include their results")
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# PAGE 7: API EXPLORER
+# ═══════════════════════════════════════════════════════════════════════
+elif page == "API Explorer":
+    st.markdown("# 🌐 API Explorer")
+    st.markdown(
+        "<span style='color:var(--text-muted)'>Fetch data from external APIs</span>",
+        unsafe_allow_html=True,
+    )
+
+    # API settings
+    url = st.text_input("API Endpoint", placeholder="https://api.example.com/data")
+
+    c1, c2 = st.columns(2)
+    with c1:
+        method = st.selectbox("Method", ["GET", "POST"])
+    with c2:
+        api_key = st.text_input("API Key (optional)", type="password")
+
+    # Headers
+    with st.expander("Headers"):
+        header_key = st.text_input("Header Key")
+        header_val = st.text_input("Header Value")
+
+    # Fetch
+    if st.button("📡 Fetch Data"):
+        if url:
+            headers = {"Authorization": f"Bearer {api_key}"} if api_key else None
+            df_api = agents["api"].fetch(url, headers)
+
+            if not df_api.empty:
+                st.success(f"✅ Fetched {len(df_api)} records")
+
+                # Preview
+                st.dataframe(df_api.head(), use_container_width=True)
+
+                # Load to pipeline
+                if st.button("📥 Load to Pipeline"):
+                    st.session_state.df = df_api
+                    st.session_state.pipeline_completed[7] = True
+                    st.success("✅ Data loaded! Go to Data Hub.")
+        else:
+            st.error("⚠️ Enter a URL")
+
+    # Preset APIs
+    st.markdown("<div class='section-head'>Quick APIs</div>", unsafe_allow_html=True)
+
+    if st.button("📊 Load Crypto Sample"):
+        # Demo: just use sample data
+        sample = load_sample_data()
+        if sample is not None:
+            st.session_state.df = sample
+            st.success("✅ Sample data loaded")
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# PAGE 8: EXECUTIVE SUMMARY
+# ═══════════════════════════════════════════════════════════════════════
+elif page == "Executive Summary":
+    st.markdown("# 📋 Executive Summary")
+    st.markdown(
+        "<span style='color:var(--text-muted)'>CEO-ready one-pager snapshot</span>",
+        unsafe_allow_html=True,
+    )
+
+    if st.session_state.df is not None:
+        df = st.session_state.df
+
+        # Header KPIs
+        total_rows = len(df)
+        total_cols = df.shape[1]
+        missing = df.isnull().sum().sum()
+        missing_pct = (missing / (total_rows * total_cols)) * 100
+
+        numeric_cols = df.select_dtypes(include="number").columns
+        cat_cols = df.select_dtypes(include="object").columns
+
+        d1, d2, d3, d4 = st.columns(4)
+        kpi(d1, "Total Rows", total_rows)
+        kpi(d2, "Features", total_cols)
+        kpi(d3, "Numeric", len(numeric_cols))
+        kpi(d4, "Missing %", missing_pct, fmt="pct")
+
+        # Summary Cards
+        st.markdown(
+            """
+            <style>
+            .exec-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px;}
+            .exec-card{
+                background:linear-gradient(135deg,var(--bg-card) 0%,#0f1f1c 100%);
+                border:1px solid var(--border);border-radius:12px;padding:20px;text-align:center;
+            }
+            .exec-val{font-size:2rem;font-weight:700;color:var(--teal-neon);}
+            .exec-lbl{font-size:0.8rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.1em;}
+            </style>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        # Key Metrics Grid
+        st.markdown("<div class='exec-grid'>", unsafe_allow_html=True)
+        cols = st.columns(4)
+
+        with cols[0]:
+            st.markdown(
+                "<div class='exec-card'><div class='exec-lbl'>Numeric Features</div><div class='exec-val'>{num}</div></div>".format(
+                    num=len(numeric_cols)
+                ),
+                unsafe_allow_html=True,
+            )
+        with cols[1]:
+            st.markdown(
+                "<div class='exec-card'><div class='exec-lbl'>Categorical</div><div class='exec-val'>{cat}</div></div>".format(
+                    cat=len(cat_cols)
+                ),
+                unsafe_allow_html=True,
+            )
+        with cols[2]:
+            st.markdown(
+                "<div class='exec-card'><div class='exec-lbl'>Missing Values</div><div class='exec-val'>{mis:,}</div></div>".format(
+                    mis=missing
+                ),
+                unsafe_allow_html=True,
+            )
+        with cols[3]:
+            st.markdown(
+                "<div class='exec-card'><div class='exec-lbl'>Data Quality</div><div class='exec-val'>{dq:.1f}%</div></div>".format(
+                    dq=100 - missing_pct
+                ),
+                unsafe_allow_html=True,
             )
 
-# ---------------------------------------------------------------------------
-# 🌐 STEP 7: API DATA FETCHING
-# ---------------------------------------------------------------------------
-elif current_step == "7. API Data Fetching":
-    st.header("🌐 Task 7: API Data Fetching")
-    url = st.text_input("🔗 API Endpoint URL", placeholder="https://api.example.com/data")
-    api_key = st.text_input("🔑 API Key (optional)", type="password")
-    retry_count = st.number_input("🔄 Max Retries", 0, 5, 2)
+        st.markdown("</div>", unsafe_allow_html=True)
 
-    if st.button("📡 Fetch Data", type="primary"):
-        if not url:
-            st.error("⚠️ Please enter a valid URL.")
-        else:
-            headers = {"Authorization": f"Bearer {api_key}"} if api_key else None
-            api_df = run_with_progress(agents["api"].fetch, url, headers, retry_count)
+        # Visualizations
+        c1, c2 = st.columns(2)
 
-            if api_df is not None and not api_df.empty:
-                # API Response metadata card
-                st.subheader("📡 API Response")
-                col_api1, col_api2, col_api3 = st.columns(3)
-                with col_api1:
-                    st.metric("Records", len(api_df))
-                with col_api2:
-                    st.metric("Columns", api_df.shape[1])
-                with col_api3:
-                    st.metric("Status", "✅ Success", delta="200 OK")
+        with c1:
+            if len(numeric_cols) > 0:
+                # Top correlations
+                corr = df[numeric_cols].corr().abs()
+                corr = corr.where(np.triu(np.ones(corr.shape), k=1).astype(bool))
+                corr = corr.stack().sort_values(ascending=False).head(5)
 
-                # Response visualization
-                st.success(f"✅ Fetched {len(api_df)} records")
-                st.dataframe(api_df.head(), use_container_width=True)
-                download_csv(api_df, "api_data.csv")
+                if len(corr) > 0:
+                    corr_df = pd.DataFrame(
+                        {"Pair": [f"{a}x{b}" for a, b in corr.index], "Correlation": corr.values}
+                    )
+                    fig = px.bar(
+                        corr_df,
+                        x="Correlation",
+                        y="Pair",
+                        orientation="h",
+                        title="Top Correlations",
+                        color="Correlation",
+                    )
+                    fig.update_layout(
+                        paper_bgcolor="rgba(0,0,0,0)",
+                        plot_bgcolor="rgba(0,0,0,0)",
+                        font=dict(color="white"),
+                    )
+                    st.plotly_chart(fig, use_container_width=True)
 
-                if st.button("📥 Load into Pipeline"):
-                    st.session_state.df = api_df
-                    st.session_state.pipeline_completed[1] = True
-                    st.success("🔄 API data loaded! Proceed to Step 1 for cleaning.")
+        with c2:
+            if len(cat_cols) > 0:
+                # Category distribution
+                cat_col = cat_cols[0]
+                cat_counts = df[cat_col].value_counts().head(5)
+                fig = px.pie(
+                    values=cat_counts.values,
+                    names=cat_counts.index,
+                    title=f"Top Categories: {cat_col}",
+                )
+                fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", font=dict(color="white"))
+                st.plotly_chart(fig, use_container_width=True)
+
+        # Model Performance Summary
+        if st.session_state.context.get("model_metrics"):
+            st.markdown("<div class='section-head'>ML Performance</div>", unsafe_allow_html=True)
+
+            m = st.session_state.context["model_metrics"]
+            m_cols = st.columns(len(m))
+            for i, (k, v) in enumerate(m.items()):
+                if isinstance(v, (int, float)) and k != "confusion_matrix":
+                    with m_cols[i % len(m_cols)]:
+                        kpi(m_cols[i % len(m_cols)], k.upper(), v, fmt="dec")
+
+        # Print button
+        st.markdown("---")
+        st.markdown(
+            """
+        <button onclick="window.print()" style="background:var(--teal);color:white;padding:10px 20px;border:none;border-radius:5px;cursor:pointer;">🖨️ Print Report</button>
+        """,
+            unsafe_allow_html=True,
+        )
+
+    else:
+        st.warning("⚠️ No data loaded. Please upload or select sample data.")
+
+        # Demo button
+        if st.button("📊 Load Demo Data"):
+            sample = load_sample_data()
+            if sample is not None:
+                st.session_state.df = sample
+                st.rerun()
             else:
-                st.error("❌ Failed to fetch data or received empty response.")
+                st.error("No sample data found. Upload a dataset first.")

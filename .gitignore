@@ -1,24 +1,6 @@
-# Python bytecode
+.commandcode/
 __pycache__/
-*.py[cod]
-*$py.class
-
-# Data and Outputs
-data/outputs/
-data/uploads/
-data/api_raw.csv
-cleaned_data.csv
-
-# Reports
-reports/final_report.md
-reports/*.png
-
-# Virtual Environment
+*.pyc
 .venv/
-env/
 venv/
-ENV/
-
-# OS files
-.DS_Store
-Thumbs.db
+*.egg-info/
