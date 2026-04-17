@@ -9,3 +9,4 @@ streamlit>=1.25
 requests>=2.31
 pydantic>=2.0
 openpyxl>=3.1
+-e .
